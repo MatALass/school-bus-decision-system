@@ -1,172 +1,224 @@
+"""Electric School Bus Decision System"""
+
+from pathlib import Path
+import sys
+
 import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-import numpy as np
 
-# ==============================
-# Electric School Bus Dashboard – USA (Interactive)
-# ==============================
+ROOT = Path(__file__).parent
+sys.path.insert(0, str(ROOT))
 
-st.set_page_config(page_title="Electric School Bus Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Electric School Bus Decision System",
+    page_icon="ESB",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# === LOGO & HEADER ===
-col1, col2 = st.columns([0.15, 0.7])
-with col1:
-    st.image("efrei_logo.png", width=200)
-with col2:
-    st.title("Electric School Bus Dashboard – USA")
-    st.markdown("""
-    This dashboard analyzes **Electric School Bus (ESB) adoption, air quality, income, and student vulnerability**  
-    for U.S. school districts, using data from the national ESB adoption dataset.
-    """)
+st.markdown(
+    """
+<style>
+    .block-container {
+        padding-top: 1.1rem;
+        padding-bottom: 2rem;
+        max-width: 1420px;
+    }
+    [data-testid="metric-container"] {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 0.9rem;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+    }
+    [data-testid="metric-container"] label {
+        color: #64748b !important;
+        font-size: 0.8rem !important;
+    }
+    .section-intro {
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        color: #334155;
+        line-height: 1.55;
+    }
+    .chart-note {
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        border: 1px solid #dbeafe;
+        border-left: 4px solid #0f766e;
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+        margin-top: 0.45rem;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+        color: #334155;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+    .chart-note div + div { margin-top: 0.35rem; }
+    .story-grid {
+        display: grid;
+        grid-template-columns: 1.05fr 1.25fr 1.25fr;
+        gap: 0.95rem;
+        margin: 0.2rem 0 1rem 0;
+    }
+    .story-card,
+    .insight-card,
+    .rec-card,
+    .mini-panel {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        box-shadow: 0 8px 26px rgba(15, 23, 42, 0.05);
+    }
+    .story-card { min-height: 132px; }
+    .story-label,
+    .insight-title,
+    .rec-step,
+    .mini-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #0f766e;
+        font-weight: 800;
+        margin-bottom: 0.45rem;
+    }
+    .story-value {
+        font-size: 1.85rem;
+        line-height: 1.08;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.28rem;
+    }
+    .story-text,
+    .insight-body,
+    .rec-text,
+    .mini-text {
+        font-size: 0.95rem;
+        color: #334155;
+        line-height: 1.5;
+    }
+    .hero {
+        background: radial-gradient(circle at top left, rgba(20,184,166,0.16), transparent 36%),
+                    radial-gradient(circle at bottom right, rgba(59,130,246,0.12), transparent 28%),
+                    linear-gradient(135deg, #0f172a 0%, #172554 45%, #0f766e 100%);
+        color: white;
+        border-radius: 24px;
+        padding: 1.45rem 1.45rem 1.25rem 1.45rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.2);
+    }
+    .hero h1 {
+        margin: 0 0 0.35rem 0;
+        font-size: 2.05rem;
+        line-height: 1.08;
+    }
+    .hero p {
+        margin: 0;
+        color: rgba(255,255,255,0.9);
+        max-width: 980px;
+        font-size: 1rem;
+        line-height: 1.58;
+    }
+    .insight-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.95rem;
+        margin: 0.3rem 0 1rem 0;
+    }
+    .insight-main {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+    .rec-title {
+        font-size: 1.06rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+    .sidebar-panel {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 0.95rem 1rem;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+    }
+    .sidebar-kicker {
+        display: inline-block;
+        padding: 0.26rem 0.55rem;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #166534;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 0.55rem;
+    }
+    .sidebar-meta {
+        color: #475569;
+        font-size: 0.92rem;
+        line-height: 1.48;
+    }
+    .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 0.9rem;
+    }
+    @media (max-width: 1000px) {
+        .story-grid,
+        .insight-grid,
+        .mini-grid { grid-template-columns: 1fr; }
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
-# === Load Data ===
-@st.cache_data
-def load_data():
-    path = "data.xlsx"
-    return pd.read_excel(path, sheet_name="1. District-level data")
+with st.sidebar:
+    st.markdown(
+        """
+<div class="sidebar-panel">
+    <div style="font-size:1.2rem; font-weight:800; color:#0f172a; margin-bottom:0.35rem;">Electric School Bus Decision System</div>
+    <div class="sidebar-meta"><strong>Author</strong><br>Mathieu Alassoeur</div>
+    <div class="sidebar-meta" style="margin-top:0.55rem;">Decision-oriented analytics project built from the World Resources Institute electric school bus workbook. The objective is not to show every chart available in the data, but to surface a small set of defensible insights and a transparent prioritization logic.</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    st.divider()
 
-df = load_data()
+    page = st.radio(
+        "Navigation",
+        options=[
+            "Executive briefing",
+            "Strategy and inequity",
+            "Decision engine",
+            "District deep dive",
+            "Market and ecosystem",
+            "Methodology and caveats",
+        ],
+        label_visibility="visible",
+    )
 
-# === Select columns ===
-cols = [
-    '1b. Local Education Agency (LEA) or entity name',
-    '1f. City',
-    '1a. State',
-    '1s. Latitude',
-    '1t. Longitude ',
-    '2a. Total number of buses',
-    '3a. Number of ESBs committed ',
-    '4e. Percentage of students in district eligible for free or reduced price lunch',
-    '5f. PM2.5 concentration',
-    '4f. Median household income'
-]
-df = df[cols]
-df.columns = [
-    'district', 'city', 'state', 'latitude', 'longitude',
-    'total_buses', 'committed_esb', 'free_lunch_pct', 'pm25', 'median_income'
-]
+    st.divider()
+    st.caption("Source workbook: World Resources Institute — Electric School Bus Initiative")
 
-# === Fix percentage scale ===
-df['free_lunch_pct'] = df['free_lunch_pct'] * 100
-
-# === Sidebar Filters ===
-st.sidebar.header("Filters")
-states = sorted(df['state'].dropna().unique())
-selected_state = st.sidebar.selectbox("Select a State:", states, index=states.index("CALIFORNIA") if "CALIFORNIA" in states else 0)
-cities = sorted(df[df['state'] == selected_state]['city'].dropna().unique())
-selected_city = st.sidebar.selectbox("Select a City:", cities, index=cities.index("Bakersfield") if "Bakersfield" in cities else 0)
-st.sidebar.markdown("---")
-st.sidebar.write(f"Currently analyzing **{selected_city}, {selected_state}**")
-
-# === Filter Data ===
-city_df = df[(df['city'].str.contains(selected_city, case=False, na=False)) &
-             (df['state'].str.contains(selected_state, case=False, na=False))]
-
-# === Compute KPIs ===
-df['esb_adoption_rate'] = (df['committed_esb'] / df['total_buses']) * 100
-city_df['esb_adoption_rate'] = (city_df['committed_esb'] / city_df['total_buses']) * 100
-
-adoption = (city_df['committed_esb'].sum() / city_df['total_buses'].sum()) * 100
-pm25 = city_df['pm25'].mean()
-income = city_df['median_income'].mean()
-free_lunch = city_df['free_lunch_pct'].mean()
-
-state_df = df[df['state'].str.contains(selected_state, case=False, na=False)]
-state_mean = {
-    'esb_adoption_rate': state_df['esb_adoption_rate'].mean(),
-    'pm25': state_df['pm25'].mean(),
-    'median_income': state_df['median_income'].mean(),
-    'free_lunch_pct': state_df['free_lunch_pct'].mean()
-}
-
-# === KPI CARDS ===
-st.subheader("Key Performance Indicators")
-fig = make_subplots(rows=1, cols=4, specs=[[{"type": "indicator"}] * 4])
-fig.add_trace(go.Indicator(mode="number", value=adoption, number={'suffix': "%"}, title={"text": "<b>ESB Adoption</b><br>Rate"}), 1, 1)
-fig.add_trace(go.Indicator(mode="number", value=pm25, number={'suffix': " µg/m³"}, title={"text": "<b>Air Pollution</b><br>(PM2.5)"}), 1, 2)
-fig.add_trace(go.Indicator(mode="number", value=income, number={'prefix': "$"}, title={"text": "<b>Median</b><br>Income"}), 1, 3)
-fig.add_trace(go.Indicator(mode="number", value=free_lunch, number={'suffix': "%"}, title={"text": "<b>Free/Reduced</b><br>Lunch"}), 1, 4)
-fig.update_layout(template="plotly_white", height=300, width=1100)
-st.plotly_chart(fig, use_container_width=True)
-
-# === MAP ===
-st.subheader("📍 Geographic Location")
-if city_df[['latitude', 'longitude']].notnull().any().any():
-    map_data = city_df[['latitude', 'longitude']]
-    st.map(map_data, zoom=8)
+if page == "Executive briefing":
+    from pages.executive import render
+elif page == "Strategy and inequity":
+    from pages.equity import render
+elif page == "Decision engine":
+    from pages.decision_engine import render
+elif page == "District deep dive":
+    from pages.district_explorer import render
+elif page == "Market and ecosystem":
+    from pages.fleet_tech import render
 else:
-    st.info("No geographic coordinates available for this city.")
+    from pages.methodology import render
 
-# === COMPARISON CHARTS ===
-st.subheader(f"{selected_city} vs {selected_state} Comparison")
-
-# 1️⃣ ESB Adoption vs PM2.5
-st.markdown("#### ESB Adoption & Air Quality")
-labels_small = ['ESB Adoption Rate (%)', 'PM2.5 (µg/m³)']
-city_small = [round(adoption, 2), round(pm25, 2)]
-state_small = [round(state_mean['esb_adoption_rate'], 2), round(state_mean['pm25'], 2)]
-fig_bar_small = go.Figure(data=[
-    go.Bar(name=selected_city, x=labels_small, y=city_small, marker_color='indianred', text=city_small, textposition='outside'),
-    go.Bar(name=f"{selected_state} Avg", x=labels_small, y=state_small, marker_color='lightblue', text=state_small, textposition='outside')
-])
-fig_bar_small.update_layout(barmode='group', template="plotly_white", height=380, yaxis=dict(range=[0, 15]))
-st.plotly_chart(fig_bar_small, use_container_width=True)
-
-# 2️⃣ Median Income
-st.markdown("#### Median Household Income Comparison")
-fig_bar_income = go.Figure(data=[
-    go.Bar(name=selected_city, x=['Median Income'], y=[income], marker_color='indianred', text=[f"${income/1000:.1f}k"], textposition='outside'),
-    go.Bar(name=f"{selected_state} Avg", x=['Median Income'], y=[state_mean['median_income']], marker_color='lightblue', text=[f"${state_mean['median_income']/1000:.1f}k"], textposition='outside')
-])
-fig_bar_income.update_layout(barmode='group', template="plotly_white", height=380, yaxis=dict(range=[0, 100000]))
-st.plotly_chart(fig_bar_income, use_container_width=True)
-
-# 3️⃣ Student Economic Vulnerability
-st.markdown("#### Student Economic Vulnerability")
-fig_bar_free = go.Figure(data=[
-    go.Bar(name=selected_city, x=['Free/Reduced Lunch (%)'], y=[free_lunch], marker_color='indianred', text=[f"{free_lunch:.1f}%"], textposition='outside'),
-    go.Bar(name=f"{selected_state} Avg", x=['Free/Reduced Lunch (%)'], y=[state_mean['free_lunch_pct']], marker_color='lightblue', text=[f"{state_mean['free_lunch_pct']:.1f}%"], textposition='outside')
-])
-fig_bar_free.update_layout(barmode='group', template="plotly_white", height=380, yaxis=dict(range=[0, 100]))
-st.plotly_chart(fig_bar_free, use_container_width=True)
-
-# 4️⃣ Scatter PM2.5 vs Adoption Rate
-st.markdown("#### PM2.5 vs ESB Adoption Rate (All Districts in State)")
-ca_df = df[df['state'].str.contains(selected_state, case=False, na=False)]
-fig_scatter = go.Figure()
-fig_scatter.add_trace(go.Scatter(x=ca_df['pm25'], y=ca_df['esb_adoption_rate'], mode='markers',
-                                 marker=dict(size=6, color='skyblue', opacity=0.5),
-                                 name='Other Districts', text=ca_df['district']))
-fig_scatter.add_trace(go.Scatter(x=city_df['pm25'], y=city_df['esb_adoption_rate'], mode='markers',
-                                 marker=dict(size=10, color='red', line=dict(color='black', width=1)),
-                                 name=selected_city, text=city_df['district']))
-fig_scatter.update_layout(template="plotly_white", height=450,
-                          xaxis_title="PM2.5 (µg/m³)", yaxis_title="ESB Adoption Rate (%)")
-st.plotly_chart(fig_scatter, use_container_width=True)
-
-# 6️⃣ Trend line
-st.markdown("#### Student Vulnerability by District")
-trend_df = city_df[['district', 'free_lunch_pct']].dropna().sort_values(by='free_lunch_pct')
-fig_trend = px.line(trend_df, x='district', y='free_lunch_pct', markers=True,
-                    labels={'district': 'District', 'free_lunch_pct': '% Eligible for Free/Reduced Lunch'},
-                    template="plotly_white")
-fig_trend.update_layout(xaxis_tickangle=-45, height=450)
-st.plotly_chart(fig_trend, use_container_width=True)
-
-# === Summary ===
-st.markdown(f"""
-<hr style="border:1px solid gray;">
-<h3>Insights – {selected_city}, {selected_state}</h3>
-<ul>
-<li><b>ESB Adoption Rate:</b> {adoption:.2f}% (lower than {selected_state} average)</li>
-<li><b>Air Pollution:</b> {pm25:.2f} µg/m³ – relatively high, suggesting the need for electrification</li>
-<li><b>Median Income:</b> ${income:,.0f} vs state average ${state_mean['median_income']:,.0f}</li>
-<li><b>Student Vulnerability:</b> {free_lunch:.0f}% of students eligible for free/reduced lunch</li>
-</ul>
-<p>These indicators support the <b>student association’s advocacy</b> for fairer ESB investments in {selected_city}.</p>
-""", unsafe_allow_html=True)
-
-st.markdown("© ALASSOEUR Mathieu, DA SILVA Samuel, THEBAULT Raphael. All rights reserved.")
+render()
