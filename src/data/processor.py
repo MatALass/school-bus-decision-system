@@ -3,8 +3,10 @@ Data transformation and feature engineering.
 Keeps all business logic in one place, separate from UI and loading.
 """
 
-import pandas as pd
+from __future__ import annotations
+
 import numpy as np
+import pandas as pd
 
 
 # ---------------------------------------------------------------------------
@@ -49,47 +51,76 @@ DISTRICT_RENAME = {
 }
 
 
+def _ensure_column(frame: pd.DataFrame, column: str, default: object = np.nan) -> None:
+    if column not in frame.columns:
+        frame[column] = default
+
+
 def clean_district(df_raw: pd.DataFrame) -> pd.DataFrame:
     cols = {k: v for k, v in DISTRICT_RENAME.items() if k in df_raw.columns}
     df = df_raw[list(cols.keys())].rename(columns=cols).copy()
 
+    for required in [
+        "state",
+        "city",
+        "total_buses",
+        "committed_esb",
+        "operating_esb",
+        "num_students",
+    ]:
+        _ensure_column(df, required)
+
     # Percentage fix (0-1 → 0-100)
     pct_cols = [
-        "free_lunch_pct", "title1_pct", "poverty_pct",
-        "pct_white", "pct_black", "pct_asian", "pct_hispanic",
-        "pct_nonwhite_hispanic", "pct_low_income", "pct_disability", "asthma_rate",
+        "free_lunch_pct",
+        "title1_pct",
+        "poverty_pct",
+        "pct_white",
+        "pct_black",
+        "pct_asian",
+        "pct_hispanic",
+        "pct_nonwhite_hispanic",
+        "pct_low_income",
+        "pct_disability",
+        "asthma_rate",
     ]
     for c in pct_cols:
-        if c in df.columns and df[c].max() <= 1.5:
-            df[c] = df[c] * 100
+        if c in df.columns and pd.to_numeric(df[c], errors="coerce").max() <= 1.5:
+            df[c] = pd.to_numeric(df[c], errors="coerce") * 100
 
     # Derived features
     df["esb_adoption_rate"] = (
-        df["committed_esb"] / df["total_buses"].replace(0, np.nan) * 100
+        pd.to_numeric(df["committed_esb"], errors="coerce")
+        / pd.to_numeric(df["total_buses"], errors="coerce").replace(0, np.nan)
+        * 100
     ).clip(0, 100)
 
     df["operating_rate"] = (
-        df["operating_esb"] / df["committed_esb"].replace(0, np.nan) * 100
+        pd.to_numeric(df["operating_esb"], errors="coerce")
+        / pd.to_numeric(df["committed_esb"], errors="coerce").replace(0, np.nan)
+        * 100
     ).clip(0, 100)
 
-    df["buses_per_student"] = df["total_buses"] / df["num_students"].replace(0, np.nan)
+    df["buses_per_student"] = pd.to_numeric(df["total_buses"], errors="coerce") / pd.to_numeric(
+        df["num_students"], errors="coerce"
+    ).replace(0, np.nan)
 
     # Equity score (composite, higher = more disadvantaged)
     # Normalized 0–100 per axis then averaged
     for col in ["pct_nonwhite_hispanic", "pct_low_income", "pm25"]:
         if col in df.columns:
-            mn, mx = df[col].min(), df[col].max()
-            df[f"{col}_norm"] = (df[col] - mn) / (mx - mn + 1e-9) * 100
+            numeric = pd.to_numeric(df[col], errors="coerce")
+            mn, mx = numeric.min(), numeric.max()
+            df[f"{col}_norm"] = (numeric - mn) / (mx - mn + 1e-9) * 100
 
     equity_components = [
-        c for c in ["pct_nonwhite_hispanic_norm", "pct_low_income_norm", "pm25_norm"]
-        if c in df.columns
+        c for c in ["pct_nonwhite_hispanic_norm", "pct_low_income_norm", "pm25_norm"] if c in df.columns
     ]
     if equity_components:
         df["equity_score"] = df[equity_components].mean(axis=1)
 
-    df["state"] = df["state"].str.upper().str.strip()
-    df["city"] = df["city"].str.strip()
+    df["state"] = df["state"].astype("string").str.upper().str.strip()
+    df["city"] = df["city"].astype("string").str.strip()
 
     return df
 
@@ -124,19 +155,30 @@ BUS_TYPE_LABELS = {"A": "Type A (Mini)", "B": "Type B (Small)", "C": "Type C (St
 def clean_bus(df_raw: pd.DataFrame) -> pd.DataFrame:
     cols = {k: v for k, v in BUS_RENAME.items() if k in df_raw.columns}
     df = df_raw[list(cols.keys())].rename(columns=cols).copy()
-    df["state"] = df["state"].str.upper().str.strip()
-    df["bus_type_label"] = df["bus_type"].map(BUS_TYPE_LABELS).fillna(df["bus_type"])
+
+    for required in [
+        "state",
+        "bus_type",
+        "quarter_awarded",
+        "bus_cost",
+        "charger_cost",
+        "funding_source",
+    ]:
+        _ensure_column(df, required)
+
+    df["state"] = df["state"].astype("string").str.upper().str.strip()
+    mapped_bus_type = df["bus_type"].map(BUS_TYPE_LABELS)
+    df["bus_type_label"] = mapped_bus_type.where(mapped_bus_type.notna(), df["bus_type"])
 
     # Parse year from quarter strings like "2022 Q3"
     df["year_awarded"] = (
-        df["quarter_awarded"]
-        .astype(str)
-        .str.extract(r"(\d{4})", expand=False)
-        .astype(float)
+        df["quarter_awarded"].astype(str).str.extract(r"(\d{4})", expand=False).astype(float)
     )
 
-    df["total_cost"] = df["bus_cost"].fillna(0) + df["charger_cost"].fillna(0)
-    df["funding_category"] = df["funding_source"].str.slice(0, 40)
+    df["total_cost"] = pd.to_numeric(df["bus_cost"], errors="coerce").fillna(0) + pd.to_numeric(
+        df["charger_cost"], errors="coerce"
+    ).fillna(0)
+    df["funding_category"] = df["funding_source"].astype("string").str.slice(0, 40)
 
     return df
 
@@ -159,6 +201,8 @@ STATE_RENAME = {
 def clean_state(df_raw: pd.DataFrame) -> pd.DataFrame:
     cols = {k: v for k, v in STATE_RENAME.items() if k in df_raw.columns}
     df = df_raw[list(cols.keys())].rename(columns=cols).copy()
-    df["state"] = df["state"].str.upper().str.strip()
-    df["avg_pct_committed_pct"] = df["avg_pct_committed"] * 100
+    _ensure_column(df, "state")
+    _ensure_column(df, "avg_pct_committed")
+    df["state"] = df["state"].astype("string").str.upper().str.strip()
+    df["avg_pct_committed_pct"] = pd.to_numeric(df["avg_pct_committed"], errors="coerce") * 100
     return df

@@ -61,8 +61,9 @@ def _utility_long_frame(df: pd.DataFrame) -> pd.DataFrame:
         value_vars=utility_cols,
         value_name="utility_name",
     )
-    melted["utility_name"] = melted["utility_name"].astype(str).str.strip()
-    return melted[(melted["utility_name"].notna()) & (melted["utility_name"] != "")].copy()
+    utility_name = melted["utility_name"].astype("string").str.strip()
+    melted["utility_name"] = utility_name
+    return melted[utility_name.notna() & utility_name.ne("")].copy()
 
 
 def _bucket(series: pd.Series, labels: list[str]) -> pd.Series:
@@ -94,8 +95,6 @@ def build_decision_dataset(
     frame = district_df.copy()
     if "lea_id" not in frame.columns:
         frame["lea_id"] = np.nan
-
-    key_cols = ["state", "district", "city", "lea_id"]
 
     bus_group = (
         bus_df.groupby(["state", "district", "city"], dropna=False)
@@ -242,7 +241,8 @@ def build_decision_dataset(
 
     frame["decision_segment"] = np.select(
         [
-            (frame["priority_score"] >= frame["priority_score"].quantile(0.75)) & (frame["quick_win_score"] >= frame["quick_win_score"].quantile(0.75)),
+            (frame["priority_score"] >= frame["priority_score"].quantile(0.75))
+            & (frame["quick_win_score"] >= frame["quick_win_score"].quantile(0.75)),
             (frame["priority_score"] >= frame["priority_score"].quantile(0.75)),
             (frame["quick_win_score"] >= frame["quick_win_score"].quantile(0.75)),
         ],

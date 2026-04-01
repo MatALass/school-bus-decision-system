@@ -4,10 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "school-bus-dashboard"
-version = "0.6.0"
+version = "0.7.0"
 description = "Portfolio-grade Streamlit decision system for electric school bus adoption analysis in the United States."
 readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Mathieu Alassoeur"}]
 dependencies = [
     "streamlit>=1.32.0",
     "pandas>=2.0.0",
@@ -26,3 +28,14 @@ where = ["src"]
 
 [project.scripts]
 school-bus-export-priority = "school_bus_cli.export_priority:main"
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "src"]
+testpaths = ["tests"]

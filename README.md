@@ -106,6 +106,11 @@ This generates:
 
 The Decision Engine page also lets you download a shortlist CSV directly from the UI.
 
+
+## Engineering quality
+
+This repository now includes an expanded automated test suite for preprocessing, scoring helpers, ranking behavior, and rollup consistency, plus a GitHub Actions CI workflow that runs the tests on every push and pull request. The raw workbook remains committed intentionally because it is the canonical public input used to reproduce the decision engine locally.
+
 ## Why this project is portfolio-grade
 
 Many student dashboards stop at visual description. This one goes further by:
