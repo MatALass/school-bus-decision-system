@@ -1,140 +1,102 @@
 # Electric School Bus Decision System
 
-A portfolio-grade Streamlit project by **Mathieu Alassoeur** that transforms a large public Excel workbook on electric school bus adoption in the United States into a **decision-support product**.
+A Streamlit application that turns the public WRI workbook on electric school bus (ESB) adoption in the United States into a prioritisation tool for school districts.
 
-This is not positioned as a generic dashboard. The project is built around three decision questions:
+It answers three questions:
 
-1. **Where is electric school bus adoption already material?**
-2. **Where does deployment still appear misaligned with environmental and socioeconomic need?**
-3. **Which districts should be prioritized first under explicit, reviewable scoring assumptions?**
+1. Where is ESB adoption already significant?
+2. Where does deployment not match environmental and socioeconomic need?
+3. Which districts should come first, under weights that can be read and changed?
 
-## What makes this version strong
+## Data
 
-The final package is intentionally narrower and stronger than a broad exploratory dashboard.
+`data/raw/data.xlsx` is the WRI *Dataset of Electric School Bus Adoption in the United States*. The app reads six of its sheets: districts, buses, states, utilities, counties and congressional districts. The workbook is committed so that the results can be reproduced as they are.
 
-It keeps only the pages that carry real analytical value:
-
-- **Executive briefing** for a recruiter or stakeholder entry point
-- **Strategy and inequity** to isolate adoption-vs-need misalignment
-- **Decision engine** to move from description to prioritization
-- **District deep dive** for local benchmarking and district-level interpretation
-- **Market and ecosystem** to surface OEM, utilities, funding, and rollout constraints
-- **Methodology and caveats** to make assumptions and limits explicit
-
-It also adds scenario-based scoring profiles so the ranking can move with the decision lens rather than pretending one frozen weighting is universally correct.
-
-## Core analytical logic
+## Method
 
 ### Priority score
-The priority score combines four transparent blocks:
 
-- **Need**: PM2.5, low-income share, free/reduced lunch, poverty, disability
-- **Transition gap**: low ESB adoption, low operating conversion, fragmented funding
-- **Scale**: fleet size
-- **Complexity**: utility fragmentation, county span, congressional span
+Each district gets a score from 0 to 100 built from four min-max normalised blocks:
+
+| Block | Inputs | Default weight |
+| --- | --- | --- |
+| Need | PM2.5, low-income share, free or reduced price lunch, poverty, disability | 0.45 |
+| Transition gap | low ESB adoption, low share of buses in operation, fragmented funding | 0.35 |
+| Scale | fleet size (log) | 0.10 |
+| Complexity | number of utilities, counties and congressional districts covered | 0.10 |
+
+Four weighting profiles show how the ranking moves with the policy goal:
+
+| Profile | Need | Transition gap | Scale | Complexity |
+| --- | --- | --- | --- | --- |
+| Balanced | 0.45 | 0.35 | 0.10 | 0.10 |
+| Equity first | 0.60 | 0.25 | 0.05 | 0.10 |
+| Deployment first | 0.35 | 0.40 | 0.15 | 0.10 |
+| Scale first | 0.30 | 0.30 | 0.30 | 0.10 |
 
 ### Quick-win score
-A second score highlights districts where action may be easier to execute because the workbook already suggests stronger rollout traction or lower coordination burden.
+
+A second score flags districts where action looks easier to start: need, scale, adoption gap and signs of rollout readiness in the workbook.
 
 ### Decision segments
-Districts are grouped into four action buckets:
 
-- **Act now**
-- **High need, harder execution**
-- **Fast-track candidate**
-- **Monitor**
+| Segment | Rule |
+| --- | --- |
+| Act now | top quartile on both scores |
+| High need, harder execution | top quartile on priority only |
+| Fast-track candidate | top quartile on quick win only |
+| Monitor | everything else |
 
-### Scenario profiles
-The decision engine includes multiple profiles:
+## Pages
 
-- **Balanced**
-- **Equity first**
-- **Deployment first**
-- **Scale first**
+- **Executive briefing**: headline figures and the main findings.
+- **Strategy and inequity**: adoption compared with need.
+- **Decision engine**: ranking, profiles, segments, and a CSV download of the shortlist.
+- **District deep dive**: one district against its state and peers.
+- **Market and ecosystem**: manufacturers, utilities and funding sources.
+- **Methodology and caveats**: definitions and limits.
 
-That makes the system more defensible: users can see how prioritization changes when policy intent changes.
+## Run it
 
-## Project structure
-
-```text
-.
-├── app.py
-├── data/
-│   ├── data.xlsx
-│   └── processed/
-├── pages/
-│   ├── decision_engine.py
-│   ├── district_explorer.py
-│   ├── equity.py
-│   ├── executive.py
-│   ├── fleet_tech.py
-│   └── methodology.py
-├── scripts/
-│   └── export_priority_snapshot.py
-├── src/
-│   ├── components/
-│   ├── data/
-│   ├── school_bus_cli/
-│   └── utils/
-├── .streamlit/
-├── pyproject.toml
-└── README.md
-```
-
-## Installation
+Python 3.11 or later.
 
 ```bash
 pip install -e .
-```
-
-## Run locally
-
-```bash
 streamlit run app.py
 ```
 
-## Export decision outputs
+Export the district and state rankings to `data/processed/`:
 
 ```bash
 school-bus-export-priority
 ```
 
-This generates:
+Tests (preprocessing, scoring, ranking and state roll-ups) run in GitHub Actions on every push and pull request:
 
-- `data/processed/district_priority_snapshot.csv`
-- `data/processed/state_priority_snapshot.csv`
+```bash
+pytest -q
+```
 
-The Decision Engine page also lets you download a shortlist CSV directly from the UI.
+## Project structure
 
+```text
+app.py                  Streamlit entry point
+pages/                  one module per page
+src/data/               loading, preprocessing, scoring and segments
+src/components/         charts and UI helpers
+src/school_bus_cli/     export command
+scripts/                export script
+tests/                  unit tests
+data/raw/               source workbook
+```
 
-## Engineering quality
+## Limits
 
-This repository now includes an expanded automated test suite for preprocessing, scoring helpers, ranking behavior, and rollup consistency, plus a GitHub Actions CI workflow that runs the tests on every push and pull request. The raw workbook remains committed intentionally because it is the canonical public input used to reproduce the decision engine locally.
+- Scores are relative to the districts in the workbook, not absolute measures.
+- Several inputs have many missing values.
+- Readiness is inferred from proxies, not measured.
+- The tool ranks and describes; it does not predict future deployment.
 
-## Why this project is portfolio-grade
+## License
 
-Many student dashboards stop at visual description. This one goes further by:
-
-- narrowing the story to a **small number of strong insights**
-- separating **scale**, **equity alignment**, **market structure**, and **execution burden** instead of collapsing them into one vague narrative
-- exposing the prioritization logic instead of hiding it behind a black-box score
-- allowing the ranking to change under different scenario profiles
-- producing exportable artifacts that support downstream briefing or triage
-- documenting methodological caveats clearly instead of overclaiming certainty
-
-## Honest limitations
-
-- the score is **relative to the workbook**, not a full operational truth
-- several inputs still contain meaningful missingness
-- implementation readiness is inferred through proxies, not measured directly
-- this is a **decision-oriented descriptive system**, not a predictive deployment model
-
-Those limits are intentional and preferable to a more ambitious but less defensible pseudo-ML framing.
-
-## Recommended presentation angle
-
-For portfolio or interview use, present the project as:
-
-**“a decision-support analytics product built from messy public workbook data, not just a dashboard.”**
-
-That framing is more accurate and stronger than presenting it as pure BI or generic data visualization.
+MIT
